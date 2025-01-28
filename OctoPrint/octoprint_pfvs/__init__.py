@@ -4,6 +4,7 @@ import octoprint.plugin
 from octoprint.events import Events
 import serial
 import threading
+import re
 
 class PFVSPlugin(octoprint.plugin.SettingsPlugin,
                  octoprint.plugin.AssetPlugin,
@@ -19,51 +20,9 @@ class PFVSPlugin(octoprint.plugin.SettingsPlugin,
         self.serial_thread = None
         self.running = False
         self.print_paused = False
-        
-        ##~~ Lifecycle Hooks
 
     def on_after_startup(self):
         self._logger.info("PFVS Plugin initialized.")
-
-    ##~~ Serial Communication
-
-    # def start_serial_communication(self):
-    #     try:
-    #         # Open serial port
-    #         self.arduino_serial = serial.Serial("/dev/ttyUSB0", 9600, timeout=1)  # Adjust port if needed
-    #         self.running = True
-    #         self.serial_thread = threading.Thread(target=self.read_from_arduino)
-    #         self.serial_thread.start()
-    #         self._logger.info("Arduino serial communication started.")
-    #     except Exception as e:
-    #         self._logger.error(f"Failed to start serial communication: {e}")
-
-    # def read_from_arduino(self):
-    #     while self.running:
-    #         try:
-    #             if self.arduino_serial.in_waiting > 0:
-    #                 gcode = self.arduino_serial.readline().decode("utf-8").strip()
-    #                 if gcode:  # Ensure valid G-code is received
-    #                     self._logger.info(f"Received G-code from Arduino: {gcode}")
-    #                     self._printer.commands([gcode])  # Send G-code to the printer
-    #         except Exception as e:
-    #             self._logger.error(f"Error reading from Arduino: {e}")
-
-    # def stop_serial_communication(self):
-    #     self.running = False
-    #     if self.serial_thread:
-    #         self.serial_thread.join()  # Wait for thread to finish
-    #     if self.arduino_serial:
-    #         self.arduino_serial.close()  # Close serial connection
-    #     self._logger.info("Arduino serial communication stopped.")
-
-    ##~~ Lifecycle Hooks
-
-    # def on_after_startup(self):
-    #     self.start_serial_communication()
-
-    # def on_shutdown(self):
-    #     self.stop_serial_communication()
 
     ##~~ SettingsPlugin mixin
 
@@ -125,10 +84,16 @@ class PFVSPlugin(octoprint.plugin.SettingsPlugin,
             self.is_filament_loading = False
             self.is_filament_unloading = False
             
-        if "230.00/230.00" in line:
-            self._printer.pause_print()
-            self._logger.info("Print started - pausing for 30 seconds.")
-            threading.Thread(target=self.delayed_resume_print, daemon=True).start()
+        match = re.search(r'(\d+\.?\d*)/(\d+\.?\d*)', line)    
+        if match:
+            current_temp = float(match.group(1))  # Extract the current temperature
+            target_temp = float(match.group(2))  # Extract the target temperature
+    
+            # Check if the current temperature is at least 95% of the target temperature
+            if current_temp >= 0.95 * target_temp:
+                self._printer.pause_print()
+                self._logger.info(f"Print started - pausing for 30 seconds as temperature is {current_temp}/{target_temp} (>= 95%).")
+                threading.Thread(target=self.delayed_resume_print, daemon=True).start()
             
         return line
 
@@ -148,7 +113,7 @@ class PFVSPlugin(octoprint.plugin.SettingsPlugin,
         }
 
 __plugin_name__ = "PFVS Plugin"
-__plugin_pythoncompat__ = ">=3,<4"  # Only Python 3
+__plugin_pythoncompat__ = ">=3,<4"
 
 def __plugin_load__():
     global __plugin_implementation__
