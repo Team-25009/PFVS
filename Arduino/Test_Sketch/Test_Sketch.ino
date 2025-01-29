@@ -5,7 +5,7 @@
 SpectralFilament spectralScanner;
 
 void setup() {
-  Serial.begin(9600); // Start serial communication at a baud rate of 9600
+  Serial.begin(115200); // Start serial communication at a baud rate of 9600
   while (!Serial); // Wait for the Serial Monitor to open
 
   Wire.begin(); // Initialize I2C communication
