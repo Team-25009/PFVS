@@ -1,5 +1,6 @@
 from collections import namedtuple
 
+# hi
 # Define the immutable scan object
 MaterialScan = namedtuple("MaterialScan", ["name", "wavelengths", "intensities", "settings"])
 
@@ -30,7 +31,7 @@ PETG_SETTINGS = {
     "requires_enclosure": False,
 }
 
-ABS_SETTINGS = {
+ASA_SETTINGS = {
     "print_temp": 240,
     "bed_temp": 100,
     "fan_speed": 0,
@@ -58,9 +59,56 @@ known_scans = [
         settings=PETG_SETTINGS,
     ),
     MaterialScan(
-        name="ABS_Black",
+        name="ASA_Black",
         wavelengths=[410, 435, 460, 485, 510, 535, 560, 585, 610, 645, 680, 705, 730, 760, 810, 860, 900, 940],
         intensities=[100, 180, 300, 250, 200, 230, 250, 300, 280, 200, 150, 100, 80, 70, 120, 140, 90, 60],
-        settings=ABS_SETTINGS,
+        settings=ASA_SETTINGS,
     ),
 ]
+def pla_generate_gcode_basic():
+
+    # Generates a basic list of G-code commands based on the given filament settings.
+   
+    return [
+        f"M104 S{200} ; Set hotend temperature",
+        f"M140 S{60} ; Set bed temperature",
+        f"M106 S{255} ; Set fan speed (0-255 scale)",
+        f"M220 S{50} ; Set print speed (percentage)",
+        f"M207 S{1.5} F{2100} ; Set retraction distance and speed",
+        f"M204 S{0.2} ; Set Z-hop height",
+        f"M221 S{100} ; Set extrusion flow rate",
+        f"M486 S{20} ; Set infill percentage",
+        "M500 ; Save settings",
+    ]
+    
+def petg_generate_gcode_basic():
+
+    # Generates a basic list of G-code commands based on the given filament settings.
+   
+    return [
+        f"M104 S{240} ; Set hotend temperature",
+        f"M140 S{80} ; Set bed temperature",
+        f"M106 S{127.5} ; Set fan speed (0-255 scale)",
+        f"M220 S{40} ; Set print speed (percentage)",
+        f"M207 S{6.0} F{1500} ; Set retraction distance and speed*60",
+        f"M204 S{0.4} ; Set Z-hop height",
+        f"M221 S{105} ; Set extrusion flow rate",
+        f"M486 S{30} ; Set infill percentage",
+        "M500 ; Save settings",
+    ]
+    
+def asa_generate_gcode_basic():
+
+    # Generates a basic list of G-code commands based on the given filament settings.
+   
+    return [
+        f"M104 S{240} ; Set hotend temperature",
+        f"M140 S{100} ; Set bed temperature",
+        f"M106 S{0} ; Set fan speed*2.55 (0-255 scale)",
+        f"M220 S{50} ; Set print speed (percentage)",
+        f"M207 S{2.0} F{1800} ; Set retraction distance and speed*60",
+        f"M204 S{0.2} ; Set Z-hop height",
+        f"M221 S{100} ; Set extrusion flow rate",
+        f"M486 S{20} ; Set infill percentage",
+        "M500 ; Save settings",
+    ]
