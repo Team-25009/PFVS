@@ -210,7 +210,7 @@ def main():
         "initial": {
             "data_dir": os.path.join(base_dir, 'data_old'),
             "files": [],
-            "weight": 0.3,
+            "weight": 1.0,
             "has_header": False
         },
         "current": {
@@ -313,6 +313,9 @@ def main():
         for i, w in enumerate(weights):
             print(f"  {feature_names[i]}: {w:.4f}")
         
+        joblib.dump(weights, f'./models_per_color/{col}_feature_weights.pkl')
+
+        
         # Compute weighted features and reduce dimensions using PCA.
         X_weighted = X_combined_aligned * weights
         scaler_weighted = StandardScaler()
@@ -385,58 +388,82 @@ def main():
         plt.title(f"SVM: Test Confusion Matrix for Color {col}")
         plt.show()
         
-               # -------------------------------
-        # 3. Decision Boundary Plotting (with environment-specific shading)
+          # -------------------------------
+        # 3. Decision Boundary Plotting (current only)
         # -------------------------------
-        # Create a meshgrid for plotting decision boundaries.
+        # Create a meshgrid for decision boundary
         x_min, x_max = X_train_w[:, 0].min() - 1, X_train_w[:, 0].max() + 1
         y_min, y_max = X_train_w[:, 1].min() - 1, X_train_w[:, 1].max() + 1
-        xx, yy = np.meshgrid(np.linspace(x_min, x_max, 300),
-                             np.linspace(y_min, y_max, 300))
-        grid_points = np.c_[xx.ravel(), yy.ravel()]
-        Z = svm_model.predict(grid_points)
-        Z = np.array(Z, dtype=float).reshape(xx.shape)
+        xx, yy = np.meshgrid(
+            np.linspace(x_min, x_max, 300),
+            np.linspace(y_min, y_max, 300)
+        )
+        grid = np.c_[xx.ravel(), yy.ravel()]
+        Z = svm_model.predict(grid).reshape(xx.shape)
 
         plt.figure(figsize=(10, 8))
         plt.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
 
-        # Retrieve environment labels for the combined dataset.
-        # 'env_labels_list' was built earlier when we combined the data for this color.
+      # Retrieve environment labels for the combined dataset
         env_labels = np.array(env_labels_list)
         # Extract training and test environment labels using the train/test indices.
         env_train = env_labels[train_idx]
-        env_test = env_labels[test_idx]
-
+        env_test  = env_labels[test_idx]
+ 
         # For training data, separate by environment.
-        mask_train_initial = (env_train == 'initial')
         mask_train_current = (env_train == 'current')
-        if np.any(mask_train_initial):
-            plt.scatter(X_train_w[mask_train_initial, 0], X_train_w[mask_train_initial, 1],
-                        c=y_train_w[mask_train_initial], cmap=plt.cm.coolwarm,
-                        edgecolor='k', marker='o', s=50, label='Train - initial')
         if np.any(mask_train_current):
-            plt.scatter(X_train_w[mask_train_current, 0], X_train_w[mask_train_current, 1],
-                        c=y_train_w[mask_train_current], cmap=plt.cm.coolwarm,
-                        edgecolor='k', marker='o', s=50, alpha=0.5, label='Train - current')
-
+            plt.scatter(
+                X_train_w[mask_train_current, 0],
+                X_train_w[mask_train_current, 1],
+                c=y_train_w[mask_train_current],
+                cmap=plt.cm.coolwarm,
+                edgecolor='k', marker='o', s=50,
+                label='Train – current'
+            )
+ 
         # For test data, separate by environment.
-        mask_test_initial = (env_test == 'initial')
         mask_test_current = (env_test == 'current')
-        if np.any(mask_test_initial):
-            plt.scatter(X_test_w[mask_test_initial, 0], X_test_w[mask_test_initial, 1],
-                        c=y_test_w[mask_test_initial], cmap=plt.cm.coolwarm,
-                        edgecolor='k', marker='^', s=80, label='Test - initial')
         if np.any(mask_test_current):
-            plt.scatter(X_test_w[mask_test_current, 0], X_test_w[mask_test_current, 1],
-                        c=y_test_w[mask_test_current], cmap=plt.cm.coolwarm,
-                        edgecolor='k', marker='^', s=80, alpha=0.5, label='Test - current')
+            plt.scatter(
+                X_test_w[mask_test_current, 0],
+                X_test_w[mask_test_current, 1],
+                c=y_test_w[mask_test_current],
+                cmap=plt.cm.coolwarm,
+                edgecolor='k', marker='^', s=80,
+                label='Test – current'
+            )
+        # Now plot ONLY the current‐environment points (both train & test)
+        env_labels = np.array(env_labels_list)
+        # combine train & test masks
+        train_mask = (env_labels[train_idx] == 'current')
+        test_mask  = (env_labels[test_idx]  == 'current')
+        if np.any(train_mask):
+            plt.scatter(
+                X_train_w[train_mask, 0],
+                X_train_w[train_mask, 1],
+                c=y_train_w[train_mask],
+                cmap=plt.cm.coolwarm,
+                edgecolor='k', marker='o', s=50,
+                label='Train – current'
+            )
+        if np.any(test_mask):
+            plt.scatter(
+                X_test_w[test_mask, 0],
+                X_test_w[test_mask, 1],
+                c=y_test_w[test_mask],
+                cmap=plt.cm.coolwarm,
+                edgecolor='k', marker='^', s=80,
+                label='Test – current'
+            )
 
-        plt.xlabel("Principal Component 1")
-        plt.ylabel("Principal Component 2")
-        plt.title(f"SVM Decision Boundaries (Weighted) for Color {col}")
+        plt.xlabel("Principal Component 1")
+        plt.ylabel("Principal Component 2")
+        plt.title(f"SVM Decision Boundaries (Weighted) for Color {col}")
         plt.legend()
         plt.colorbar(label="Predicted Material Class")
         plt.show()
+
 
         
         # (Optional) Learning curve plotting (could be disabled in production)
