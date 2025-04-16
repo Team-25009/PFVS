@@ -1,0 +1,105 @@
+import os
+import pandas as pd
+import numpy as np
+import joblib
+import matplotlib.pyplot as plt
+
+def load_model_components_no_pca(color, models_dir):
+    """
+    Load the weighted scaler, the SVM model (trained on full–dimensional weighted features),
+    and the label encoder for a given color.
+    """
+    scaler_weighted = joblib.load(os.path.join(models_dir, f"{color}_scaler_weighted.pkl"))
+    model = joblib.load(os.path.join(models_dir, f"{color}_svm_model.pkl"))
+    encoder = joblib.load(os.path.join(models_dir, f"{color}_material_encoder.pkl"))
+    return scaler_weighted, model, encoder
+
+def load_training_subset(color_abbrev, data_dir, materials=["PLA", "ASA", "PET"], n_scans=50):
+    """
+    For a given color abbreviation (e.g., "R" for Red), load the first n_scans from each
+    database file corresponding to each material.
+    Returns a DataFrame with columns: Color, Material, Scan, Value1, ..., Value18.
+    Assumes each CSV file has no header and each row is a scan.
+    """
+    subset_rows = []
+    for material in materials:
+        filename = f"{material}{color_abbrev}fulldatabase.csv"
+        file_path = os.path.join(data_dir, filename)
+        if os.path.exists(file_path):
+            df_mat = pd.read_csv(file_path, header=None)
+            # Take only the first n_scans rows
+            df_mat = df_mat.iloc[:n_scans, :].copy()
+            df_mat.columns = [f"Value{i}" for i in range(1, df_mat.shape[1]+1)]
+            df_mat.insert(0, "Scan", range(1, len(df_mat)+1))
+            df_mat.insert(0, "Material", material)
+            df_mat.insert(0, "Color", color_abbrev)  # store color as abbreviation
+            subset_rows.append(df_mat)
+        else:
+            print(f"Warning: {file_path} not found.")
+    if subset_rows:
+        return pd.concat(subset_rows, ignore_index=True)
+    else:
+        return pd.DataFrame()  # return empty DataFrame if none found
+
+def main():
+    # Build file paths relative to the script location.
+    script_dir = os.path.dirname(__file__)
+    test_file = os.path.join(script_dir, "data", "real_scans.txt")
+    data_dir = os.path.join(script_dir, "data")
+    models_dir = os.path.join(script_dir, "models_per_color")
+
+    # Load the real scans file (assumed to be CSV with a header).
+    df_real = pd.read_csv(test_file)
+    print("Real scans file read successfully!")
+    print(df_real.head())
+
+    # Define the spectral columns (assuming 18 values per scan).
+    spectral_columns = [f"Value{i}" for i in range(1, 19)]
+    
+    # Mapping of full color names (from the test file) to model abbreviations.
+    color_map = {
+        "Red": "R",
+        "Green": "G",
+        "Blue": "B",
+        "Black": "K",  # assuming 'K' is used for Black
+        "White": "W"
+    }
+    
+    all_predictions = []
+
+    # Process each unique color in the real scans file.
+    for full_color in df_real["Color"].unique():
+        print(f"\nProcessing color: {full_color}")
+        color_abbrev = color_map.get(full_color, full_color)
+        print(f"Using model for color: {color_abbrev}")
+
+        # Filter the real scans for this color.
+        df_real_color = df_real[df_real["Color"] == full_color].copy()
+        X_real = df_real_color[spectral_columns].values.astype(float)
+
+        # Load the pre-trained model components (non-PCA version).
+        try:
+            scaler_weighted, model, encoder = load_model_components_no_pca(color_abbrev, models_dir)
+        except FileNotFoundError as e:
+            print(f"Error loading models for color {color_abbrev}: {e}")
+            continue
+
+        # Transform the real scans using the weighted scaler.
+        X_real_weighted = scaler_weighted.transform(X_real)
+
+        # Predict using the SVM model trained on full-dimensional weighted features.
+        pred_encoded = model.predict(X_real_weighted)
+        pred_material = encoder.inverse_transform(pred_encoded)
+        df_real_color["Predicted_Material"] = pred_material
+        print(df_real_color[["Color", "Scan", "Predicted_Material"]])
+        all_predictions.append(df_real_color)
+    
+    # Optionally, concatenate and save all predictions.
+    if all_predictions:
+        df_all = pd.concat(all_predictions, ignore_index=True)
+        output_file = os.path.join(script_dir, "predicted_test_scans_no_pca.csv")
+        df_all.to_csv(output_file, index=False)
+        print(f"\nAll real scan predictions have been saved to {output_file}")
+
+if __name__ == '__main__':
+    main()
