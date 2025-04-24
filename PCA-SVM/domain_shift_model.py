@@ -351,7 +351,7 @@ def main():
             continue
         
         # Train SVM.
-        svm_model = SVC(kernel='rbf', C=0.5, gamma='scale', class_weight='balanced', random_state=42)
+        svm_model = SVC(kernel='rbf', C=1.0, gamma='scale', class_weight='balanced', random_state=42)
         print("Training the SVM model on weighted features...")
         svm_model.fit(X_train_w, y_train_w, sample_weight=w_train_w)
         y_train_pred_svm = svm_model.predict(X_train_w)

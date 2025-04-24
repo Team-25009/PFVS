@@ -1,9 +1,12 @@
-from predict_material import predict_material
-# Example usage:
-spectral_data = [215.9, 607.81, 1899.83, 175.62, 968.77, 550.97, 41.88, 91.15, 394.43, 
-                 107.92, 154.77, 24.58, 40.62, 29.73, 85.16, 141.69, 35.12, 27.1]
+from predict_material_PLSDA import predict_material_plsda
 
-filament_color = 'R'  # Example: 'K' for Black
+# put your 18 spectral readings into a list
+values = [
+    1159, 537, 1490, 616, 684, 479, 153, 143,
+     145,  86,   41,  37,  21,  14,  29,  82,
+      32,  23
+]
 
-predicted_material = predict_material(spectral_data, filament_color)
-print(f"Predicted Filament Material: {predicted_material}")
+# now call with (spectral_data, color_label)
+material = predict_material_plsda(values, 'Blue')
+print(material)
