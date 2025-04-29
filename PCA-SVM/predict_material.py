@@ -28,7 +28,7 @@ def predict_material(spectral_array, color_label):
         X = X.reshape(1, -1)
 
     # Base model directory
-    model_dir = './models_per_color'
+    model_dir = os.path.dirname(os.path.abspath(__file__)) + "/models_per_color"
 
     # Load global material encoder
     encoder_path = os.path.join(model_dir, 'material_encoder.pkl')
@@ -36,7 +36,18 @@ def predict_material(spectral_array, color_label):
 
     # Normalize color label and build file prefix
     clr = color_label.strip().capitalize()
-    prefix = os.path.join(model_dir, clr)
+    prefix = ""
+    
+    if (clr == 'R'):
+        prefix = "Red"
+    elif (clr == 'B'):
+        prefix = "Blue"
+    elif (clr == 'G'):
+        prefix = "Green"
+    elif (clr == 'K'):
+        prefix = "Black"
+    elif (clr == 'W'):
+        prefix = "Whiete"    
 
     # Load pipeline components
     scaler           = joblib.load(f'{prefix}_scaler.pkl')
