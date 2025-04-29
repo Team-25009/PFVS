@@ -201,6 +201,32 @@ def load_environment_data(env_name, folder_path, selected_files=None, has_header
     return spectra_array, np.array(all_materials), np.array(all_colors, dtype=str)
 
 # -------------------------
+# Spectral Preprocessing
+# -------------------------
+def snv(spectra):
+    """
+    Standard Normal Variate (SNV) transformation:
+    subtracts mean and divides by std for each sample.
+    """
+    mu = np.mean(spectra, axis=1, keepdims=True)
+    sigma = np.std(spectra, axis=1, ddof=1, keepdims=True)
+    return (spectra - mu) / sigma
+
+
+def preprocess_spectra(spectra, window_length=11, polyorder=2, deriv=1):
+    """
+    Applies SNV, Savitzky-Golay smoothing, and first derivative.
+    """
+    # SNV
+    spectra_snv = snv(spectra)
+    # Savitzky-Golay smoothing
+    spectra_sg = savgol_filter(spectra_snv, window_length, polyorder, deriv=0, axis=1)
+    # First derivative with Savitzky-Golay
+    spectra_deriv = savgol_filter(spectra_snv, window_length, polyorder, deriv=deriv, axis=1)
+    return spectra_deriv
+
+
+# -------------------------
 # Main Training and Analysis Pipeline
 # -------------------------
 def main():
@@ -216,7 +242,7 @@ def main():
         "current": {
             "data_dir": os.path.join(base_dir, 'data_current'),
             "files": [],
-            "weight": 10.0,
+            "weight": 2.0,
             "has_header": False
         }
     }
@@ -331,6 +357,10 @@ def main():
         indices = np.arange(len(y_combined_final))
         train_idx, test_idx = train_test_split(indices, test_size=0.3, random_state=42, stratify=y_combined_final)
         
+        env_labels = np.array(env_labels_list)   # flatten your ['initial',...,'current'] list
+        env_train  = env_labels[train_idx]       # labels for each training sample
+        env_test   = env_labels[test_idx]        # labels for each test sample
+
         # (Optional) For headless deployment you might skip plotting and simply log metrics.
         env_labels = np.array(env_labels_list)
         train_envs, train_counts = np.unique(env_labels[train_idx], return_counts=True)
@@ -404,35 +434,29 @@ def main():
         plt.figure(figsize=(10, 8))
         plt.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
 
-      # Retrieve environment labels for the combined dataset
-        env_labels = np.array(env_labels_list)
-        # Extract training and test environment labels using the train/test indices.
-        env_train = env_labels[train_idx]
-        env_test  = env_labels[test_idx]
- 
-        # For training data, separate by environment.
-        mask_train_current = (env_train == 'current')
-        if np.any(mask_train_current):
+      # Use env_train and env_test that match X_train_w and X_test_w
+        train_mask_current = (env_train == 'current')
+        test_mask_current = (env_test == 'current')
+
+        if np.any(train_mask_current):
             plt.scatter(
-                X_train_w[mask_train_current, 0],
-                X_train_w[mask_train_current, 1],
-                c=y_train_w[mask_train_current],
+                X_train_w[train_mask_current, 0],
+                X_train_w[train_mask_current, 1],
+                c=y_train_w[train_mask_current],
                 cmap=plt.cm.coolwarm,
                 edgecolor='k', marker='o', s=50,
-                label='Train – current'
+                label='Train – current'
             )
- 
-        # For test data, separate by environment.
-        mask_test_current = (env_test == 'current')
-        if np.any(mask_test_current):
+        if np.any(test_mask_current):
             plt.scatter(
-                X_test_w[mask_test_current, 0],
-                X_test_w[mask_test_current, 1],
-                c=y_test_w[mask_test_current],
+                X_test_w[test_mask_current, 0],
+                X_test_w[test_mask_current, 1],
+                c=y_test_w[test_mask_current],
                 cmap=plt.cm.coolwarm,
                 edgecolor='k', marker='^', s=80,
-                label='Test – current'
+                label='Test – current'
             )
+
         # Now plot ONLY the current‐environment points (both train & test)
         env_labels = np.array(env_labels_list)
         # combine train & test masks

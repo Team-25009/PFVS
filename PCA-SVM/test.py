@@ -1,12 +1,23 @@
-from predict_material_PLSDA import predict_material_plsda
+# demo_print.py
+from predict_material import predict_material
 
-# put your 18 spectral readings into a list
-values = [
-    1159, 537, 1490, 616, 684, 479, 153, 143,
-     145,  86,   41,  37,  21,  14,  29,  82,
-      32,  23
+# 1) Red PLA
+scan_pla_red = [
+    726, 136, 322, 117, 207, 271, 110, 220,
+    153, 210, 45, 71, 21, 14, 23, 72, 30, 19
 ]
+print("PLA (red) →", predict_material(scan_pla_red, 'red'))
 
-# now call with (spectral_data, color_label)
-material = predict_material_plsda(values, 'Blue')
-print(material)
+# 2) White PET
+scan_pet_white = [
+    3461, 991, 2294, 1029, 1458, 1636, 696, 801,
+    163, 457, 48, 130, 22, 15, 24, 76, 61, 38
+]
+print("PET (white) →", predict_material(scan_pet_white, 'white'))
+
+# 3) Blue ASA
+scan_asa_blue = [
+    1050, 260, 655, 211, 277, 304, 115, 105,
+    139, 71, 43, 52, 20, 14, 22, 72, 20, 17
+]
+print("ASA (blue) →", predict_material(scan_asa_blue, 'blue'))

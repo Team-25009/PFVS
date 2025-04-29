@@ -110,7 +110,7 @@ def main():
     base = os.path.dirname(__file__)
     cfg = {
         'initial': dict(path=os.path.join(base,'data_old'), weight=1.0),
-        'current': dict(path=os.path.join(base,'data_current'), weight=10.0)
+        'current': dict(path=os.path.join(base,'data_current'), weight=1.0)
     }
     env_data = {}
     for name, c in cfg.items():
