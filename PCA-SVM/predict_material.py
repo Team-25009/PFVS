@@ -1,48 +1,56 @@
-import numpy as np
+import os
 import joblib
+import numpy as np
 
-def predict_material(spectral_data, color_label):
+# Standalone material-prediction function using saved pipeline in ./models_per_color
+def predict_material(spectral_array, color_label):
     """
-    Predicts the filament material given spectral data and a color label.
-    
-    Parameters:
-        spectral_data (list or np.array): An array of 18 spectral channel values.
-        color_label (str): A single-character string representing the filament color ('R', 'B', 'G', etc.).
-    
+    Predicts filament material from a spectral scan and color label.
+
+    Assumes the current working directory contains a 'models_per_color' folder with:
+      - material_encoder.pkl
+      - <Color>_scaler.pkl
+      - <Color>_feature_weights.pkl
+      - <Color>_scaler_weighted.pkl
+      - <Color>_pca_weighted.pkl
+      - <Color>_svm_model.pkl
+
+    Args:
+        spectral_array (array-like): 1D array of raw spectral values.
+        color_label (str): filament color (e.g. 'black', 'white').
+
     Returns:
-        str: Predicted filament material.
+        str: material prediction (e.g., 'PLA', 'PET', 'ASA').
     """
-    # Define paths
-    model_dir = './models/'
-    
-    # Load the trained model and preprocessing tools
-    scaler = joblib.load(model_dir + 'scaler.pkl')
-    pca = joblib.load(model_dir + 'pca.pkl')
-    model = joblib.load(model_dir + 'svm_model.pkl')
-    material_encoder = joblib.load(model_dir + 'material_encoder.pkl')
-    color_encoder = joblib.load(model_dir + 'color_encoder.pkl')
-    # Ensure spectral data is a NumPy array
-    spectral_data = np.array(spectral_data)
-    
-    # Validate input dimensions
-    if spectral_data.shape[0] != 18:
-        raise ValueError("Spectral data must contain exactly 18 channel values.")
-    
-    # Encode the color
-    encoded_color = color_encoder.transform([color_label])[0]
-    
-    # Combine spectral data with encoded color
-    combined_sample = np.append(spectral_data, encoded_color).reshape(1, -1)
-    
-    # Scale the combined data
-    scaled_sample = scaler.transform(combined_sample)
-    
-    # Apply PCA
-    pca_sample = pca.transform(scaled_sample)
-    
-    # Predict material type
-    predicted_material_encoded = model.predict(pca_sample)
-    predicted_material = material_encoder.inverse_transform(predicted_material_encoded)[0]
-    
-    return predicted_material
+    # Ensure numpy array and correct shape
+    X = np.array(spectral_array, dtype=float)
+    if X.ndim == 1:
+        X = X.reshape(1, -1)
 
+    # Base model directory
+    model_dir = './models_per_color'
+
+    # Load global material encoder
+    encoder_path = os.path.join(model_dir, 'material_encoder.pkl')
+    material_encoder = joblib.load(encoder_path)
+
+    # Normalize color label and build file prefix
+    clr = color_label.strip().capitalize()
+    prefix = os.path.join(model_dir, clr)
+
+    # Load pipeline components
+    scaler           = joblib.load(f'{prefix}_scaler.pkl')
+    feature_weights  = joblib.load(f'{prefix}_feature_weights.pkl')
+    scaler_weighted  = joblib.load(f'{prefix}_scaler_weighted.pkl')
+    pca              = joblib.load(f'{prefix}_pca_weighted.pkl')
+    svm_model        = joblib.load(f'{prefix}_svm_model.pkl')
+
+    # Pipeline: scale, weight, scale, PCA, SVM
+    X_scaled     = scaler.transform(X)
+    X_weighted   = X_scaled * feature_weights
+    X_wt_scaled  = scaler_weighted.transform(X_weighted)
+    X_pca        = pca.transform(X_wt_scaled)
+    y_pred       = svm_model.predict(X_pca)
+
+    # Return decoded label
+    return material_encoder.inverse_transform(y_pred)[0]

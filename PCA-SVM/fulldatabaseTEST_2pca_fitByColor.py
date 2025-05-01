@@ -167,21 +167,26 @@ for color, results in color_groups.items():
     plt.title(f"Confusion Matrix for Color {color}")
     plt.show()
 
-# Learning curve
-train_sizes, train_scores, val_scores = learning_curve(
-    model, X_train_pca, y_train, cv=5, scoring='accuracy', train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1
-)
-train_scores_mean = np.mean(train_scores, axis=1)
-val_scores_mean = np.mean(val_scores, axis=1)
+from sklearn.model_selection import learning_curve
 
-plt.figure()
-plt.plot(train_sizes, train_scores_mean, 'o-', label='Training score')
-plt.plot(train_sizes, val_scores_mean, 'o-', label='Validation score')
-plt.title("Learning Curve (SVM with 2 PCA Components)")
-plt.xlabel("Training size")
+# Calculate learning curves
+train_sizes, train_scores_lc, val_scores_lc = learning_curve(
+    model, X_train_pca, y_train, cv=5, scoring='accuracy',
+    train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1, random_state=42
+)
+
+# Calculate mean scores for plotting
+train_scores_mean = np.mean(train_scores_lc, axis=1)
+val_scores_mean = np.mean(val_scores_lc, axis=1)
+
+plt.figure(figsize=(8, 6))
+plt.plot(train_sizes, train_scores_mean, 'o-', label='Training Accuracy')
+plt.plot(train_sizes, val_scores_mean, 'o-', label='Validation Accuracy')
+plt.xlabel("Training Set Size")
 plt.ylabel("Accuracy")
+plt.title("Learning Curve (SVM with 2 PCA Components)")
 plt.legend()
-plt.grid()
+plt.grid(True)
 plt.show()
 
 # --------------------------
@@ -213,3 +218,38 @@ def predict_new_sample(new_sample, color_label):
     prediction = loaded_model.predict(pca_sample)
     return material_encoder.inverse_transform(prediction)[0]
 
+# Visualize decision boundaries in PCA space
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Combine all PCA-transformed data for setting grid limits
+X_combined = np.vstack((X_train_pca, X_val_pca, X_test_pca))
+x_min, x_max = X_combined[:, 0].min() - 1, X_combined[:, 0].max() + 1
+y_min, y_max = X_combined[:, 1].min() - 1, X_combined[:, 1].max() + 1
+
+# Create a mesh grid
+xx, yy = np.meshgrid(np.linspace(x_min, x_max, 300),
+                     np.linspace(y_min, y_max, 300))
+
+# Predict over the grid using the trained SVM model
+Z = model.predict(np.c_[xx.ravel(), yy.ravel()])
+Z = Z.reshape(xx.shape)
+
+# Plot the decision boundaries with a contourf plot
+plt.figure(figsize=(10, 8))
+plt.contourf(xx, yy, Z, alpha=0.3, cmap=plt.cm.coolwarm)
+
+# Plot the training, validation, and test points
+scatter_train = plt.scatter(X_train_pca[:, 0], X_train_pca[:, 1],
+                            c=y_train, cmap=plt.cm.coolwarm, edgecolor='k', label='Train')
+scatter_val = plt.scatter(X_val_pca[:, 0], X_val_pca[:, 1],
+                          c=y_val, cmap=plt.cm.coolwarm, marker='s', edgecolor='k', label='Validation')
+scatter_test = plt.scatter(X_test_pca[:, 0], X_test_pca[:, 1],
+                           c=y_test, cmap=plt.cm.coolwarm, marker='^', edgecolor='k', label='Test')
+
+plt.xlabel("Principal Component 1")
+plt.ylabel("Principal Component 2")
+plt.title("Decision Boundaries and PCA-transformed Data")
+plt.legend()
+plt.colorbar(label="Predicted Class")
+plt.show()
