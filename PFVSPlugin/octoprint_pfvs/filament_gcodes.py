@@ -11,8 +11,8 @@ class Filament:
     def generate_gcode(self) -> List[str]:
         """Generate G-code for this filament."""
         return [
-            f"M104 S{self.print_temp}",  # Set nozzle temperature
-            f"M140 S{self.bed_temp}",    # Set bed temperature
+            f"M109 R{self.print_temp}",   # Wait for nozzle temp to reach target
+            f"M190 R{self.bed_temp}",     # Wait for bed temp to reach target
         ]
 
 # Define available filament types
